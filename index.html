@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Balanza Demo - Sistema de Gestión</title>
+    <title>Balanza Pro - Dashboard de Gestión</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary: #0ea5e9;
@@ -248,6 +249,53 @@
             box-shadow: 0 5px 15px rgba(14, 165, 233, 0.4);
         }
 
+        .btn-icon {
+            width: 2.25rem;
+            height: 2.25rem;
+            padding: 0;
+            border-radius: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            min-width: 2.25rem;
+        }
+
+        .btn-icon-edit {
+            background: rgba(59, 130, 246, 0.12);
+            color: #2563eb;
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-icon-edit:hover {
+            background: rgba(59, 130, 246, 0.18);
+            transform: translateY(-1px);
+        }
+
+        .btn-icon-delete {
+            background: rgba(239, 68, 68, 0.12);
+            color: #b91c1c;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-icon-delete:hover {
+            background: rgba(239, 68, 68, 0.18);
+            transform: translateY(-1px);
+        }
+
+        .btn-icon-secondary {
+            background: rgba(148, 163, 184, 0.12);
+            color: #475569;
+            border-color: rgba(148, 163, 184, 0.3);
+        }
+
+        .btn-icon-secondary:hover {
+            background: rgba(148, 163, 184, 0.18);
+            transform: translateY(-1px);
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -411,6 +459,60 @@
         .toast-error {
             background: var(--accent-red);
         }
+
+        /* Dashboard specific styles */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-light);
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+            border: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        body.dark .stat-card {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .chart-container {
+            background: var(--card-light);
+            padding: 1.5rem;
+            border-radius: 1.5rem;
+            border: 1px solid var(--border-light);
+            height: 400px;
+            position: relative;
+            width: 100%;
+        }
+
+        .dashboard-charts {
+            grid-template-columns: 2fr 1fr;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-charts {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        body.dark .chart-container {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
     </style>
 </head>
 
@@ -425,6 +527,8 @@
                 <p style="font-size: 0.8rem; opacity: 0.7;">Modo Standalone (LocalStorage)</p>
             </div>
             <div class="controls">
+                <button class="btn" style="padding: 0.5rem; font-size: 0.8rem;"
+                    onclick="seedData(); renderContent(); showToast('Datos generados!')">🔄 Semillar</button>
                 <button class="btn-theme" onclick="toggleTheme()" id="themeIcon">☀️</button>
                 <div style="font-size: 2rem;">⚖️</div>
             </div>
@@ -463,66 +567,98 @@
     <script>
         // --- Data Configurations ---
         const configs = {
-            choferes: {
-                id: 'choferes',
-                icon: '🚗',
-                label: 'Choferes',
-                fields: [
-                    { name: 'codigo', label: 'Código', type: 'text', placeholder: 'CHO001' },
-                    { name: 'nombre', label: 'Nombre Completo', type: 'text', placeholder: 'García Juan' },
-                    { name: 'dni', label: 'DNI', type: 'text', placeholder: '12345678' }
-                ],
-                columns: ['codigo', 'nombre', 'dni']
-            },
-            productores: {
-                id: 'productores',
-                icon: '🌾',
-                label: 'Productores',
-                fields: [
-                    { name: 'cuit', label: 'CUIT', type: 'text', placeholder: '20-12345678-9' },
-                    { name: 'nombre', label: 'Razón Social', type: 'text', placeholder: 'Estancia El Sol' }
-                ],
-                columns: ['cuit', 'nombre']
-            },
-            productos: {
-                id: 'productos',
-                icon: '📦',
-                label: 'Productos',
-                fields: [
-                    { name: 'nombre', label: 'Nombre del Producto', type: 'text', placeholder: 'Maíz' }
-                ],
-                columns: ['nombre']
-            },
-            transportes: {
-                id: 'transportes',
-                icon: '🚛',
-                label: 'Transportes',
-                fields: [
-                    { name: 'nombre', label: 'Empresa', type: 'text' },
-                    { name: 'patente_camion', label: 'Patente Camión', type: 'text' }
-                ],
-                columns: ['nombre', 'patente_camion']
-            },
-            pesada: {
-                id: 'pesada',
-                icon: '⚖️',
-                label: 'Pesada',
+            dashboard: {
+                id: 'dashboard',
+                icon: '📊',
+                label: 'Dashboard',
                 isSpecial: true
+            },
+
+            operaciones: {
+                id: 'operaciones',
+                icon: '⚖️',
+                label: 'Operaciones',
+                children: {
+                    nueva: { id: 'operaciones_nueva', label: 'Nueva Operación' },
+                    lista: { id: 'operaciones_lista', label: 'Ver Operaciones' }
+                }
+            },
+
+            reportes: {
+                id: 'reportes',
+                icon: '📊',
+                label: 'Reportes',
+                isSpecial: true
+            },
+
+            maestros: {
+                id: 'maestros',
+                icon: '📁',
+                label: 'Maestros',
+                children: {
+                    choferes: {
+                        id: 'choferes',
+                        icon: '🚚',
+                        label: 'Choferes',
+                        fields: [
+                            { name: 'codigo', label: 'Código', type: 'text', placeholder: 'CHO001' },
+                            { name: 'nombre', label: 'Nombre Completo', type: 'text', placeholder: 'García Juan' },
+                            { name: 'dni', label: 'DNI', type: 'text', placeholder: '12345678' }
+                        ],
+                        columns: ['codigo', 'nombre', 'dni']
+                    },
+                    productores: {
+                        id: 'productores',
+                        icon: '🌾',
+                        label: 'Productores',
+                        fields: [
+                            { name: 'cuit', label: 'CUIT', type: 'text', placeholder: '20-12345678-9' },
+                            { name: 'nombre', label: 'Razón Social', type: 'text', placeholder: 'Estancia El Sol' }
+                        ],
+                        columns: ['cuit', 'nombre']
+                    },
+                    productos: {
+                        id: 'productos',
+                        icon: '📦',
+                        label: 'Productos',
+                        fields: [
+                            { name: 'nombre', label: 'Nombre del Producto', type: 'text', placeholder: 'Maíz' }
+                        ],
+                        columns: ['nombre']
+                    },
+                    transportes: {
+                        id: 'transportes',
+                        icon: '🚛',
+                        label: 'Transportes',
+                        fields: [
+                            { name: 'nombre', label: 'Empresa', type: 'text' },
+                            { name: 'patente_camion', label: 'Patente Camión', type: 'text' }
+                        ],
+                        columns: ['nombre', 'patente_camion']
+                    }
+                }
             }
         };
 
         // --- Application State ---
         let state = {
-            activeTab: 'choferes',
+            activeTab: 'dashboard',
+            subTab: 'operaciones_nueva',
             isDark: true,
+            showOperaciones: false,
+            showMaestros: false,
             data: {
                 choferes: [],
                 productores: [],
                 productos: [],
                 transportes: [],
-                pesadas: []
+                operaciones: [],
+                reports: []
             },
-            editingId: null
+            selectedOperaciones: [],
+            editingId: null,
+            viewingReportId: null,
+            charts: {}
         };
 
         // --- Core Functions ---
@@ -532,16 +668,80 @@
             const saved = localStorage.getItem('balanza_demo_data');
             if (saved) {
                 state.data = JSON.parse(saved);
+                // Ensure new fields exist
+                if (!state.data.reports) state.data.reports = [];
+                if (!state.data.operaciones) state.data.operaciones = [];
             } else {
-                // Seed data if empty
-                state.data.choferes = [{ id: 1, codigo: 'CHO001', nombre: 'Juan Perez', dni: '30123456' }];
-                state.data.productores = [{ id: 1, cuit: '30-11223344-9', nombre: 'Agro Campo SA' }];
-                state.data.productos = [{ id: 1, nombre: 'Soja' }];
-                saveState();
+                seedData();
             }
+
+            // Forzar carga de datos adicionales si se solicita (puedes llamar a seedData() aquí directamente si quieres que siempre cargue)
+            // seedData(); 
 
             renderNav();
             renderContent();
+        }
+
+        function seedData() {
+            state.data.choferes = [
+                { id: 1, codigo: 'CHO001', nombre: 'Carlos Rodriguez', dni: '28456789' },
+                { id: 2, codigo: 'CHO002', nombre: 'Miguel Sanchez', dni: '32123456' },
+                { id: 3, codigo: 'CHO003', nombre: 'Jorge Lopez', dni: '25789012' }
+            ];
+            state.data.productores = [
+                { id: 1, cuit: '30-11223344-9', nombre: 'Agro Campo SA' },
+                { id: 2, cuit: '33-55667788-2', nombre: 'Estancia La Linda' }
+            ];
+            state.data.productos = [
+                { id: 1, nombre: 'Soja' },
+                { id: 2, nombre: 'Maíz' },
+                { id: 3, nombre: 'Trigo' },
+                { id: 4, nombre: 'Girasol' }
+            ];
+            state.data.transportes = [
+                { id: 1, nombre: 'TransCarga SRL', patente_camion: 'AB123CD' },
+                { id: 2, nombre: 'Logística Sur', patente_camion: 'EF456GH' }
+            ];
+
+            // Generate sample operations
+            const products = ['Soja', 'Maíz', 'Trigo', 'Girasol'];
+            const plates = ['AB123CD', 'EF456GH'];
+
+            for (let i = 0; i < 10; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() - Math.floor(Math.random() * 7));
+                date.setHours(Math.floor(Math.random() * 12) + 8);
+
+                const patente = plates[Math.floor(Math.random() * plates.length)];
+                const brutoPeso = Math.floor(Math.random() * 30000) + 20000;
+                const taraPeso = Math.floor(Math.random() * 5000) + 3000;
+                const chofer = state.data.choferes[Math.floor(Math.random() * state.data.choferes.length)].nombre;
+                const producto = products[Math.floor(Math.random() * products.length)];
+
+const taraData = Math.random() > 0.3 ? {
+                peso: taraPeso,
+                timestamp: new Date(date.getTime() + Math.random() * 3600000).toISOString(), // 1 hour later
+                chofer: chofer,
+                producto: producto
+            } : null;
+
+            const operacion = {
+                id: Date.now() + i,
+                patente: patente,
+                bruto: {
+                    peso: brutoPeso,
+                    timestamp: date.toISOString(),
+                    chofer: chofer,
+                    producto: producto
+                },
+                tara: taraData,
+                estado: taraData ? 'cerrada' : 'abierta'
+                };
+
+                state.data.operaciones.push(operacion);
+            }
+            state.data.reports = [];
+            saveState();
         }
 
         function saveState() {
@@ -555,145 +755,293 @@
         }
 
         function switchTab(tabId) {
-            state.activeTab = tabId;
+            if (tabId === 'dashboard') {
+                state.activeTab = 'dashboard';
+                state.showOperaciones = false;
+                state.showMaestros = false;
+            } else if (tabId === 'operaciones') {
+                state.activeTab = 'operaciones';
+                state.showOperaciones = true;
+                state.showMaestros = false;
+                if (!Object.values(configs.operaciones.children).some(c => c.id === state.subTab)) {
+                    state.subTab = 'operaciones_nueva';
+                }
+            } else if (tabId === 'maestros') {
+                state.activeTab = 'maestros';
+                state.showMaestros = true;
+                state.showOperaciones = false;
+                if (!configs.maestros.children[state.subTab]) {
+                    state.subTab = 'choferes';
+                }
+            } else if (tabId === 'reportes') {
+                state.activeTab = 'reportes';
+                state.showOperaciones = false;
+                state.showMaestros = false;
+            }
+
             renderNav();
             renderContent();
         }
 
         function renderNav() {
             const nav = document.getElementById('mainNav');
+
+            if (!nav) return; // seguridad
+
             nav.innerHTML = '';
 
-            Object.values(configs).forEach(conf => {
-                const btn = document.createElement('button');
-                btn.className = `tab-btn ${state.activeTab === conf.id ? 'active' : ''}`;
-                btn.onclick = () => switchTab(conf.id);
+            // CONTENEDOR PRINCIPAL
+            const mainRow = document.createElement('div');
+            mainRow.style.display = 'flex';
+            mainRow.style.gap = '0.75rem';
+            mainRow.style.flexWrap = 'wrap';
 
-                const count = state.data[conf.id] ? state.data[conf.id].length : 0;
-                btn.innerHTML = `
-                    <span>${conf.icon}</span>
-                    <span>${conf.label}</span>
-                    ${!conf.isSpecial ? `<span class="badge">${count}</span>` : ''}
-                `;
-                nav.appendChild(btn);
-            });
+            // DASHBOARD
+            const btnDashboard = document.createElement('button');
+            btnDashboard.className = `tab-btn ${state.activeTab === 'dashboard' ? 'active' : ''}`;
+            btnDashboard.innerText = '📊 Dashboard';
+            btnDashboard.onclick = () => switchTab('dashboard');
+            mainRow.appendChild(btnDashboard);
+
+            // OPERACIONES
+            const btnOperaciones = document.createElement('button');
+            btnOperaciones.className = `tab-btn ${state.activeTab === 'operaciones' ? 'active' : ''}`;
+            btnOperaciones.innerText = '⚖️ Operaciones';
+            btnOperaciones.onclick = () => switchTab('operaciones');
+            mainRow.appendChild(btnOperaciones);
+
+            // MAESTROS
+            const btnMaestros = document.createElement('button');
+            btnMaestros.className = `tab-btn ${state.activeTab === 'maestros' ? 'active' : ''}`;
+            btnMaestros.innerText = '📁 Maestros';
+            btnMaestros.onclick = () => switchTab('maestros');
+            mainRow.appendChild(btnMaestros);
+
+            // REPORTES
+            const btnReportes = document.createElement('button');
+            btnReportes.className = `tab-btn ${state.activeTab === 'reportes' ? 'active' : ''}`;
+            btnReportes.innerText = '📊 Reportes';
+            btnReportes.onclick = () => switchTab('reportes');
+            mainRow.appendChild(btnReportes);
+
+            nav.appendChild(mainRow);
+
+            if (state.showOperaciones) {
+                const subRowOperaciones = document.createElement('div');
+                subRowOperaciones.style.marginTop = '1rem';
+                subRowOperaciones.style.display = 'flex';
+                subRowOperaciones.style.gap = '0.5rem';
+                subRowOperaciones.style.flexWrap = 'wrap';
+
+                Object.values(configs.operaciones.children).forEach(conf => {
+                    const btn = document.createElement('button');
+                    btn.className = `tab-btn ${state.subTab === conf.id ? 'active' : ''}`;
+                    btn.innerText = conf.label;
+                    btn.onclick = () => {
+                        state.activeTab = 'operaciones';
+                        state.subTab = conf.id;
+                        renderNav();
+                        renderContent();
+                    };
+                    subRowOperaciones.appendChild(btn);
+                });
+
+                nav.appendChild(subRowOperaciones);
+            }
+
+            // SUBMENÚ
+            if (state.showMaestros) {
+                const subRow = document.createElement('div');
+
+                subRow.style.marginTop = '1rem';
+                subRow.style.display = 'flex';
+                subRow.style.gap = '0.5rem';
+                subRow.style.flexWrap = 'wrap';
+
+                const maestros = ['choferes', 'productores', 'productos', 'transportes'];
+
+                maestros.forEach(key => {
+                    const conf = configs.maestros.children[key];
+                    if (!conf) return;
+
+                    const btn = document.createElement('button');
+                    btn.className = `tab-btn ${state.subTab === key ? 'active' : ''}`;
+
+                    const count = state.data[key]?.length || 0;
+
+                    btn.innerHTML = `
+                <span>${conf.icon}</span>
+                <span>${conf.label}</span>
+                <span class="badge">${count}</span>
+            `;
+
+                    btn.onclick = () => {
+                        state.activeTab = 'maestros';
+                        state.subTab = key;
+                        renderNav();
+                        renderContent();
+                    };
+
+                    subRow.appendChild(btn);
+                });
+
+                nav.appendChild(subRow);
+            }
         }
 
         function renderContent() {
+            console.log('Rendering content for tab:', state.activeTab, 'subTab:', state.subTab);
             const container = document.getElementById('appContent');
-            const conf = configs[state.activeTab];
 
-            if (conf.isSpecial) {
-                renderPesadaForm(container);
+            if (state.activeTab === 'maestros' && !configs.maestros.children[state.subTab]) {
+                state.subTab = 'choferes';
+            }
+
+            // Dashboard
+            if (state.activeTab === 'dashboard') {
+                renderDashboard(container);
                 return;
             }
 
-            const items = state.data[state.activeTab] || [];
+            // OPERACIONES
+            if (state.activeTab === 'operaciones') {
+                if (state.subTab === 'operaciones_nueva') {
+                    renderOperacionForm(container);
+                    return;
+                }
 
-            container.innerHTML = `
-                <div class="card">
-                    <div class="action-bar">
-                        <h2>Gestión de ${conf.label}</h2>
-                        <button class="btn btn-primary" onclick="openCreateModal()">
-                            <span>+</span> Nuevo ${conf.label}
-                        </button>
-                    </div>
-                    ${items.length === 0 ? `
-                        <div style="text-align:center; padding: 3rem; opacity:0.5;">
-                            <div style="font-size: 3rem;">📭</div>
-                            <p>No hay registros todavía</p>
-                        </div>
-                    ` : `
-                        <div style="overflow-x:auto;">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        ${conf.columns.map(c => `<th>${c}</th>`).join('')}
-                                        <th style="text-align:right;">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${items.map(item => `
-                                        <tr>
-                                            ${conf.columns.map(c => `<td>${item[c] || '-'}</td>`).join('')}
-                                            <td style="text-align:right;">
-                                                <button class="btn" style="padding:0.4rem; background:none; color:var(--primary);" onclick="openEditModal(${item.id})">✎</button>
-                                                <button class="btn" style="padding:0.4rem; background:none; color:var(--accent-red);" onclick="deleteItem(${item.id})">🗑</button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    `}
+                if (state.subTab === 'operaciones_lista') {
+                    renderOperacionesLista(container);
+                    return;
+                }
+            }
+
+            // REPORTES
+            if (state.activeTab === 'reportes') {
+                renderReportes(container);
+                return;
+            }
+
+            // MAESTROS
+            if (state.activeTab === 'maestros') {
+                const conf = Object.values(configs.maestros.children)
+                    .find(c => c.id === state.subTab);
+
+                if (!conf) return;
+
+                const items = state.data[conf.id] || [];
+
+                container.innerHTML = `
+            <div class="card">
+                <div class="action-bar">
+                    <h2>Gestión de ${conf.label}</h2>
+                    <button class="btn btn-primary" onclick="openCreateModal()">
+                        <span>+</span> Nuevo ${conf.label}
+                    </button>
                 </div>
-            `;
+
+                ${items.length === 0 ? `
+                    <div style="text-align:center; padding: 3rem; opacity:0.5;">
+                        <div style="font-size: 3rem;">📭</div>
+                        <p>No hay registros todavía</p>
+                    </div>
+                ` : `
+                    <div style="overflow-x:auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    ${conf.columns.map(c => `<th>${c}</th>`).join('')}
+                                    <th style="text-align:right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr>
+                                        ${conf.columns.map(c => `<td>${item[c] || '-'}</td>`).join('')}
+                                        <td style="text-align:right;">
+                                            <button class="btn btn-icon btn-icon-edit" onclick="openEditModal(${item.id})" title="Editar registro">✎</button>
+                                            <button class="btn btn-icon btn-icon-delete" onclick="deleteItem(${item.id})" title="Eliminar registro">🗑</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `}
+            </div>
+        `;
+            }
         }
 
-        function renderPesadaForm(container) {
+        function renderOperacionForm(container) {
             container.innerHTML = `
                 <div class="card">
                     <h2>⚖️ Operación de Pesaje</h2>
                     <p style="margin-bottom: 2rem; opacity: 0.7;">Completa los datos para emitir un ticket de pesaje.</p>
                     
-                    <form id="pesadaForm" onsubmit="event.preventDefault(); registrarPesada();">
+                    <form id="operacionForm" onsubmit="event.preventDefault(); registrarOperacion();">
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>Patente Vehículo</label>
-                                <input type="text" id="p_patente" placeholder="Eje: AB123CD" required>
+                                <select id="o_patente" required onchange="onPatenteChange()">
+                                    <option value="">Seleccionar patente...</option>
+                                    ${state.data.transportes.map(t => `<option value="${t.patente_camion}">${t.patente_camion} — ${t.nombre}</option>`).join('')}
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label>Chofer</label>
-                                <select id="p_chofer">
+                                <select id="o_chofer">
                                     <option value="">Seleccionar...</option>
                                     ${state.data.choferes.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Producto</label>
-                                <select id="p_producto">
+                                <select id="o_producto">
                                     <option value="">Seleccionar...</option>
                                     ${state.data.productos.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Remito Nro</label>
-                                <input type="text" id="p_remito" placeholder="0001-00123">
+                                <input type="text" id="o_remito" placeholder="0001-00123">
                             </div>
                         </div>
 
                         <div class="weigh-section">
                             <label>INGRESAR PESO (kg)</label>
-                            <input type="number" step="0.1" class="weight-input" id="p_peso" placeholder="0.0" required>
+                            <input type="number" step="0.1" class="weight-input" id="o_peso" placeholder="0.0" required>
                             
                             <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                                <button type="button" class="btn" style="flex:1; background: var(--accent-green); color: white;" onclick="submitPesada('BRUTO')">REGISTRAR BRUTO</button>
-                                <button type="button" class="btn" style="flex:1; background: var(--accent-orange); color: white;" onclick="submitPesada('TARA')">REGISTRAR TARA</button>
+                                <button type="button" class="btn" style="flex:1; background: var(--accent-green); color: white;" onclick="submitOperacion('BRUTO')">REGISTRAR BRUTO</button>
+                                <button type="button" class="btn" style="flex:1; background: var(--accent-orange); color: white;" onclick="submitOperacion('TARA')">REGISTRAR TARA</button>
                             </div>
                         </div>
                     </form>
 
                     <div style="margin-top: 3rem;">
-                        <h3>Últimas Pesadas</h3>
+                        <h3>Últimas Operaciones</h3>
                         <div style="overflow-x:auto;">
                             <table>
                                 <thead>
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Patente</th>
-                                        <th>Tipo</th>
-                                        <th>Peso</th>
-                                        <th>Producto</th>
+                                        <th>Estado</th>
+                                        <th>Bruto</th>
+                                        <th>Tara</th>
+                                        <th>Neto</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${state.data.pesadas.slice().reverse().slice(0, 5).map(p => `
+                                    ${state.data.operaciones.slice().reverse().slice(0, 5).map(o => `
                                         <tr>
-                                            <td>${new Date(p.timestamp).toLocaleTimeString()}</td>
-                                            <td><b>${p.patente}</b></td>
-                                            <td><span style="color: ${p.tipo === 'BRUTO' ? 'var(--accent-green)' : 'var(--accent-orange)'}">${p.tipo}</span></td>
-                                            <td>${p.peso} kg</td>
-                                            <td>${p.producto}</td>
+                                            <td>${new Date(o.bruto.timestamp).toLocaleTimeString()}</td>
+                                            <td><b>${o.patente}</b></td>
+                                            <td><span style="color: ${o.estado === 'cerrada' ? 'var(--accent-green)' : 'var(--accent-orange)'}">${o.estado}</span></td>
+                                            <td>${o.bruto.peso} kg</td>
+                                            <td>${o.tara ? o.tara.peso + ' kg' : '-'}</td>
+                                            <td>${o.tara ? (o.bruto.peso - o.tara.peso) + ' kg' : '-'}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -704,19 +1052,352 @@
             `;
         }
 
+function renderOperacionesLista(container) {
+            const items = state.data.operaciones;
+
+            container.innerHTML = `
+        <div class="card">
+            <div class="action-bar">
+                <h2>Historial de Operaciones</h2>
+                <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+                    <button class="btn btn-primary" onclick="toggleSelectAllOperaciones()">${state.selectedOperaciones.length === items.filter(o => o.estado === 'cerrada').length ? 'Deseleccionar todas' : 'Seleccionar todas'}</button>
+                    <button class="btn" style="background:${state.selectedOperaciones.length ? 'var(--primary)' : '#94a3b8'}; color:white;" onclick="generateOperacionesReport()" ${state.selectedOperaciones.length ? '' : 'disabled'}>Generar reporte</button>
+                </div>
+            </div>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:56px"></th>
+                            <th>Fecha</th>
+                            <th>Patente</th>
+                            <th>Estado</th>
+                            <th>Bruto</th>
+                            <th>Tara</th>
+                            <th>Neto</th>
+                            <th>Producto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(o => `
+                            <tr>
+                                <td><input type="checkbox" ${o.estado === 'cerrada' && state.selectedOperaciones.includes(o.id) ? 'checked' : ''} ${o.estado !== 'cerrada' ? 'disabled' : ''} onclick="toggleOperacionSelection(${o.id})"></td>
+                                <td>${new Date(o.bruto.timestamp).toLocaleString()}</td>
+                                <td>${o.patente}</td>
+                                <td><span style="color: ${o.estado === 'cerrada' ? 'var(--accent-green)' : 'var(--accent-orange)'}">${o.estado}</span></td>
+                                <td>${o.bruto.peso} kg</td>
+                                <td>${o.tara ? o.tara.peso + ' kg' : '-'}</td>
+                                <td>${o.tara ? (o.bruto.peso - o.tara.peso) + ' kg' : '-'}</td>
+                                <td>${o.bruto.producto}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+        }
+
+        function renderReportes(container) {
+            if (state.viewingReportId) {
+                const report = state.data.reports.find(r => r.id === state.viewingReportId);
+                if (!report) {
+                    state.viewingReportId = null;
+                    renderReportes(container);
+                    return;
+                }
+                container.innerHTML = `
+        <div class="card">
+            <button class="btn" onclick="state.viewingReportId=null; renderContent();">← Volver a Reportes</button>
+            <h2>${report.name}</h2>
+            <p>Generado el ${new Date(report.timestamp).toLocaleString()}</p>
+            ${getOperacionesReportHtml(report.operaciones)}
+        </div>
+    `;
+                return;
+            }
+
+            const reports = state.data.reports;
+
+            container.innerHTML = `
+        <div class="card">
+            <h2>📊 Reportes Guardados</h2>
+            ${reports.length === 0 ? `
+                <div style="text-align:center; padding: 3rem; opacity:0.5;">
+                    <div style="font-size: 3rem;">📭</div>
+                    <p>No hay reportes guardados todavía</p>
+                    <p>Ve a "Ver Operaciones" para seleccionar operaciones cerradas y generar un reporte.</p>
+                </div>
+            ` : `
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Fecha</th>
+                                <th>Operaciones</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${reports.map(r => `
+                                <tr>
+                                    <td>${r.name}</td>
+                                    <td>${new Date(r.timestamp).toLocaleDateString()}</td>
+                                    <td>${r.operaciones.length}</td>
+                                    <td>
+                                        <button class="btn btn-icon btn-icon-secondary" onclick="viewReport(${r.id})" title="Ver reporte">👁</button>
+                                        <button class="btn btn-icon btn-icon-delete" onclick="deleteReport(${r.id})" title="Eliminar reporte">🗑</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `}
+        </div>
+    `;
+        }
+
+        function toggleOperacionSelection(id) {
+            const index = state.selectedOperaciones.indexOf(id);
+            if (index >= 0) {
+                state.selectedOperaciones.splice(index, 1);
+            } else {
+                state.selectedOperaciones.push(id);
+            }
+            renderContent();
+        }
+
+        function toggleSelectAllOperaciones() {
+            const cerradas = state.data.operaciones.filter(o => o.estado === 'cerrada');
+            if (state.selectedOperaciones.length === cerradas.length) {
+                state.selectedOperaciones = [];
+            } else {
+                state.selectedOperaciones = cerradas.map(o => o.id);
+            }
+            renderContent();
+        }
+
+        function viewReport(id) {
+            state.viewingReportId = id;
+            renderContent();
+        }
+
+        function deleteReport(id) {
+            if (confirm('¿Estás seguro de eliminar este reporte?')) {
+                state.data.reports = state.data.reports.filter(r => r.id !== id);
+                saveState();
+                renderContent();
+                showToast('Reporte eliminado', 'error');
+            }
+        }
+
+        function generateOperacionesReport() {
+            if (!state.selectedOperaciones.length) {
+                showToast('Selecciona al menos una operación cerrada para generar el reporte', 'error');
+                return;
+            }
+            const selectedItems = state.data.operaciones.filter(o => state.selectedOperaciones.includes(o.id));
+            const report = {
+                id: Date.now(),
+                name: `Reporte ${state.data.reports.length + 1} - ${new Date().toLocaleDateString()}`,
+                operaciones: selectedItems,
+                timestamp: new Date().toISOString()
+            };
+            state.data.reports.push(report);
+            saveState();
+            state.selectedOperaciones = [];
+            showToast('Reporte guardado: ' + report.name);
+            switchTab('reportes');
+            renderContent();
+        }
+
+        function getOperacionesReportHtml(selectedItems) {
+            const totalNeto = selectedItems.reduce((sum, o) => sum + (o.bruto.peso - (o.tara ? o.tara.peso : 0)), 0);
+            const byProduct = selectedItems.reduce((acc, o) => {
+                acc[o.bruto.producto] = (acc[o.bruto.producto] || 0) + 1;
+                return acc;
+            }, {});
+            const totalOperaciones = selectedItems.length;
+
+            return `
+            <div style="margin-top: 2rem; padding: 1.5rem; border-radius: 1rem; background: rgba(14, 165, 233, 0.05);">
+                <h3>Reporte seleccionado</h3>
+                <p>Operaciones seleccionadas: <strong>${totalOperaciones}</strong></p>
+                <p>Peso neto total: <strong>${totalNeto} kg</strong></p>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-top:1rem;">
+                    <div>
+                        <strong>Por producto</strong>
+                        <ul style="padding-left:1rem; margin:0;">
+                            ${Object.entries(byProduct).map(([product, count]) => `<li>${product}: ${count}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+
+        function renderDashboard(container) {
+            const totalNeto = state.data.operaciones.filter(o => o.estado === 'cerrada').reduce((acc, o) => acc + (o.bruto.peso - (o.tara ? o.tara.peso : 0)), 0);
+            const totalOperaciones = state.data.operaciones.length;
+            const productosCount = state.data.productos.length;
+
+            container.innerHTML = `
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <label>PESO NETO TOTAL PROCESADO</label>
+                        <div class="stat-value">${(totalNeto / 1000).toFixed(1)} TN</div>
+                        <p style="opacity: 0.6; font-size: 0.8rem;">Acumulado histórico</p>
+                    </div>
+                    <div class="stat-card">
+                        <label>OPERACIONES TOTALES</label>
+                        <div class="stat-value">${totalOperaciones}</div>
+                        <p style="opacity: 0.6; font-size: 0.8rem;">Operaciones registradas</p>
+                    </div>
+                    <div class="stat-card">
+                        <label>PRODUCTOS ACTIVOS</label>
+                        <div class="stat-value">${productosCount}</div>
+                        <p style="opacity: 0.6; font-size: 0.8rem;">En catálogo</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid dashboard-charts">
+                    <div class="chart-container">
+                        <h3>Actividad de Pesaje (Últimos 7 días)</h3>
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Distribución por Producto</h3>
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+            `;
+
+            // Prepare data for charts
+            setTimeout(() => initCharts(), 100);
+        }
+
+        function initCharts() {
+            const chartCanvasMain = document.getElementById('mainChart');
+            const chartCanvasPie = document.getElementById('pieChart');
+            if (!chartCanvasMain || !chartCanvasPie) return;
+
+            const ctxMain = chartCanvasMain.getContext('2d');
+            const ctxPie = chartCanvasPie.getContext('2d');
+
+            // Data for line chart (Activity)
+            const last7Days = [...Array(7)].map((_, i) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (6 - i));
+                return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+            });
+
+            const activityData = last7Days.map(day => {
+                return state.data.operaciones.filter(o => {
+                    const oDay = new Date(o.bruto.timestamp).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+                    return oDay === day;
+                }).length;
+            });
+
+            // Data for pie chart (Products)
+            const prodStats = {};
+            state.data.operaciones.forEach(o => {
+                prodStats[o.bruto.producto] = (prodStats[o.bruto.producto] || 0) + 1;
+            });
+
+            const chartColor = state.isDark ? '#f1f5f9' : '#1e293b';
+            const gridColor = state.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+            if (state.charts.main) state.charts.main.destroy();
+            if (state.charts.pie) state.charts.pie.destroy();
+
+            state.charts.main = new Chart(ctxMain, {
+                type: 'line',
+                data: {
+                    labels: last7Days,
+                    datasets: [{
+                        label: 'Operaciones diarias',
+                        data: activityData,
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor },
+                            ticks: { color: chartColor }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: chartColor }
+                        }
+                    }
+                }
+            });
+
+            state.charts.pie = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(prodStats),
+                    datasets: [{
+                        data: Object.values(prodStats),
+                        backgroundColor: [
+                            '#0ea5e9', '#6366f1', '#10b981', '#f59e0b', '#ef4444'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: chartColor, padding: 20 }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
         // --- CRUD Handlers ---
 
         function openCreateModal() {
+            // 🚫 Evitar abrir modal en secciones especiales
+            if (state.activeTab === 'dashboard' || state.activeTab === 'pesadas') return;
+
             state.editingId = null;
-            document.getElementById('modalTitle').innerText = 'Nuevo ' + configs[state.activeTab].label;
+
+            const conf = getActiveConfig();
+            if (!conf) return;
+
+            document.getElementById('modalTitle').innerText = 'Nuevo ' + conf.label;
+
             renderFormFields();
             document.getElementById('modalOverlay').classList.add('active');
         }
 
         function openEditModal(id) {
+            if (state.activeTab === 'dashboard' || state.activeTab === 'pesadas') return;
+
             state.editingId = id;
-            const item = state.data[state.activeTab].find(i => i.id === id);
-            document.getElementById('modalTitle').innerText = 'Editar ' + configs[state.activeTab].label;
+
+            const collectionKey = getActiveDataKey();
+            const item = state.data[collectionKey].find(i => i.id === id);
+            const conf = getActiveConfig();
+
+            document.getElementById('modalTitle').innerText = 'Editar ' + conf.label;
+
             renderFormFields(item);
             document.getElementById('modalOverlay').classList.add('active');
         }
@@ -725,37 +1406,68 @@
             document.getElementById('modalOverlay').classList.remove('active');
         }
 
+        function getActiveConfig() {
+            if (state.activeTab === 'maestros') {
+                return configs.maestros.children[state.subTab];
+            }
+            return configs[state.activeTab];
+        }
+
+        function getActiveDataKey() {
+            return state.activeTab === 'maestros' ? state.subTab : state.activeTab;
+        }
+
         function renderFormFields(item = null) {
             const body = document.getElementById('modalBody');
             body.innerHTML = '';
-            const fields = configs[state.activeTab].fields;
+
+            const conf = getActiveConfig();
+            if (!conf || !conf.fields) return;
+
+            const fields = conf.fields;
 
             fields.forEach(f => {
                 const group = document.createElement('div');
                 group.className = 'form-group';
+
                 group.innerHTML = `
-                    <label>${f.label}</label>
-                    <input type="${f.type}" name="${f.name}" value="${item ? (item[f.name] || '') : ''}" placeholder="${f.placeholder || ''}" required>
-                `;
+            <label>${f.label}</label>
+            <input 
+                type="${f.type}" 
+                name="${f.name}" 
+                value="${item ? (item[f.name] || '') : ''}" 
+                placeholder="${f.placeholder || ''}" 
+                required
+            >
+        `;
+
                 body.appendChild(group);
             });
         }
 
         document.getElementById('crudForm').onsubmit = function (e) {
             e.preventDefault();
+
+            // 🚫 Evitar submit en secciones no CRUD
+            if (state.activeTab === 'dashboard' || state.activeTab === 'pesadas') return;
+
             const formData = new FormData(this);
             const entry = {};
+
             formData.forEach((val, key) => entry[key] = val);
+
+            const collectionKey = getActiveDataKey();
+            const collection = state.data[collectionKey];
 
             if (state.editingId) {
                 // Update
-                const idx = state.data[state.activeTab].findIndex(i => i.id === state.editingId);
-                state.data[state.activeTab][idx] = { ...state.data[state.activeTab][idx], ...entry };
+                const idx = collection.findIndex(i => i.id === state.editingId);
+                collection[idx] = { ...collection[idx], ...entry };
                 showToast('Actualizado correctamente');
             } else {
                 // Create
                 entry.id = Date.now();
-                state.data[state.activeTab].push(entry);
+                collection.push(entry);
                 showToast('Guardado correctamente');
             }
 
@@ -767,47 +1479,95 @@
         };
 
         function deleteItem(id) {
+            if (state.activeTab === 'dashboard' || state.activeTab === 'pesadas') return;
+
             if (confirm('¿Estás seguro de eliminar este registro?')) {
-                state.data[state.activeTab] = state.data[state.activeTab].filter(i => i.id !== id);
+                const collectionKey = getActiveDataKey();
+                state.data[collectionKey] = state.data[collectionKey].filter(i => i.id !== id);
+
                 saveState();
                 renderNav();
                 renderContent();
+
                 showToast('Eliminado', 'error');
             }
         }
 
-        function submitPesada(tipo) {
-            const patente = document.getElementById('p_patente').value;
-            const peso = document.getElementById('p_peso').value;
-            const chofer = document.getElementById('p_chofer').value;
-            const producto = document.getElementById('p_producto').value;
+        function submitOperacion(tipo) {
+            const patente = document.getElementById('o_patente').value;
+            const peso = document.getElementById('o_peso').value;
+            const chofer = document.getElementById('o_chofer').value;
+            const producto = document.getElementById('o_producto').value;
 
             if (!patente || !peso) {
                 showToast('Completa los campos obligatorios', 'error');
                 return;
             }
 
-            const pesada = {
-                id: Date.now(),
-                patente: patente.toUpperCase(),
-                peso: parseFloat(peso),
-                tipo: tipo,
-                chofer: chofer,
-                producto: producto,
-                timestamp: new Date().toISOString()
-            };
+            if (tipo === 'BRUTO') {
+                // Crear nueva operación abierta
+                const operacion = {
+                    id: Date.now(),
+                    patente: patente.toUpperCase(),
+                    bruto: {
+                        peso: parseFloat(peso),
+                        timestamp: new Date().toISOString(),
+                        chofer: chofer,
+                        producto: producto
+                    },
+                    tara: null,
+                    estado: 'abierta'
+                };
+                state.data.operaciones.push(operacion);
+                showToast('Operación BRUTO registrada. Esperando TARA.');
+            } else if (tipo === 'TARA') {
+                // Buscar operación abierta con esa patente
+                const operacionAbierta = state.data.operaciones.find(o => o.estado === 'abierta' && o.patente === patente.toUpperCase());
+                if (!operacionAbierta) {
+                    showToast('No hay operación abierta para esta patente. Registra BRUTO primero.', 'error');
+                    return;
+                }
+                operacionAbierta.tara = {
+                    peso: parseFloat(peso),
+                    timestamp: new Date().toISOString(),
+                    chofer: chofer,
+                    producto: producto
+                };
+                operacionAbierta.estado = 'cerrada';
+                showToast('Operación TARA registrada. Operación cerrada.');
+            }
 
-            state.data.pesadas.push(pesada);
             saveState();
-            showToast(`Pesada ${tipo} registrada!`);
             renderContent();
+        }
+
+        function onPatenteChange() {
+            const patente = document.getElementById('o_patente').value.toUpperCase();
+            const operacionAbierta = state.data.operaciones.find(o => o.estado === 'abierta' && o.patente === patente);
+            
+            if (operacionAbierta) {
+                // Auto-fill from BRUTO data
+                document.getElementById('o_chofer').value = operacionAbierta.bruto.chofer || '';
+                document.getElementById('o_producto').value = operacionAbierta.bruto.producto || '';
+                // Remito not stored, leave empty
+                document.getElementById('o_peso').value = ''; // Clear peso for new input
+                showToast('Datos auto-completados de la operación abierta.');
+            } else {
+                // Clear fields if no open operation
+                document.getElementById('o_chofer').value = '';
+                document.getElementById('o_producto').value = '';
+                document.getElementById('o_peso').value = '';
+            }
         }
 
         function showToast(msg, type = 'success') {
             const t = document.getElementById('toast');
+
             t.className = type === 'success' ? 'toast-success' : 'toast-error';
             t.innerText = msg;
+
             t.classList.add('active');
+
             setTimeout(() => t.classList.remove('active'), 3000);
         }
 
